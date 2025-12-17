@@ -1,6 +1,7 @@
 package com.example.login_register.config;
 
 import com.example.login_register.repository.UserRepository;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -25,7 +26,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            JwtFilter jwtFilter,
-                                           JwtAuthenticationEntryPoint entryPoint) throws Exception {
+                                           JwtAuthenticationEntryPoint entryPoint,
+                                           OAuth2SuccessHandler oAuth2SuccessHandler) throws Exception {
 
         http
                 //Disable CSRF (JWT stateless)
@@ -36,7 +38,7 @@ public class SecurityConfig {
 
                 //No session
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
 
                 //Xử lý 401
@@ -50,7 +52,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/**",
                                 "/oauth2/**",
-                                "/login/**"
+                                "/login/**",
+                                "/login/oauth2/**"
                         ).permitAll()
 
                         // ADMIN
@@ -62,6 +65,20 @@ public class SecurityConfig {
                         // OTHER
                         .anyRequest().authenticated()
                 )
+                .oauth2Login(oauth -> oauth
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler((request, response, exception) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write("""
+                {
+                  "error": "OAuth2 login failed",
+                  "message": "%s"
+                }
+            """.formatted(exception.getMessage()));
+                        })
+                )
+
 
                 //JWT Filter
                 .addFilterBefore(jwtFilter,

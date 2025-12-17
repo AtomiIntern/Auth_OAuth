@@ -96,6 +96,32 @@ public class AuthService {
         );
     }
 
+    // ================= LOGIN GOOGLE =================
+    public AuthResponse loginWithGoogle(String googleId, String email, String name) {
+
+        User user = userRepository
+                .findByProviderAndProviderId("GOOGLE", googleId)
+                .orElseGet(() -> {
+
+                    User newUser = new User();
+                    newUser.setUsername(name);
+                    newUser.setEmail(email);
+                    newUser.setProvider("GOOGLE");
+                    newUser.setProviderId(googleId);
+                    newUser.setRole(Role.USER.name());
+
+                    return userRepository.save(newUser);
+                });
+
+        UserDetails userDetails = buildUserDetails(user);
+
+        return new AuthResponse(
+                jwtUtil.generateAccessToken(userDetails),
+                jwtUtil.generateRefreshToken(userDetails)
+        );
+    }
+
+
     // ================= HELPER =================
     private UserDetails buildUserDetails(User user) {
 
