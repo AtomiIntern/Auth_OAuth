@@ -35,7 +35,7 @@ public class UserController {
         return response;
     }
 
-
+    @PreAuthorize("hasRole('USER')")
     @GetMapping("/{id}")
     public ApiResponse<User> getUserById(@PathVariable Long id) {
         ApiResponse<User> response = new ApiResponse<>();

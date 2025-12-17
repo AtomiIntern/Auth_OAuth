@@ -21,50 +21,75 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
+    // ================= SECURITY FILTER CHAIN =================
     @Bean
-    public UserDetailsService userDetailsService(UserRepository userRepository) {
-        return username -> userRepository.findByUsername(username)
-                .map(user -> org.springframework.security.core.userdetails.User.builder()
-                        .username(user.getUsername())
-                        .password(user.getPassword())
-                        .authorities("USER")
-                        .build())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-    }
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, JwtFilter jwtFilter) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           JwtFilter jwtFilter,
+                                           JwtAuthenticationEntryPoint entryPoint) throws Exception {
 
         http
+                //Disable CSRF (JWT stateless)
                 .csrf(csrf -> csrf.disable())
+
+                //CORS
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                //No session
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                //Xử lý 401
+                .exceptionHandling(ex ->
+                        ex.authenticationEntryPoint(entryPoint)
+                )
+
+                //Authorization
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**" , "/auth/login/facebook").permitAll()
+                        // PUBLIC
+                        .requestMatchers(
+                                "/auth/**",
+                                "/oauth2/**",
+                                "/login/**"
+                        ).permitAll()
+
+                        // ADMIN
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                        // USER + ADMIN
                         .requestMatchers("/users/**").hasAnyRole("USER", "ADMIN")
+
+                        // OTHER
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+                //JWT Filter
+                .addFilterBefore(jwtFilter,
+                        UsernamePasswordAuthenticationFilter.class);
 
-        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        // Cho H2-console nếu có
+        http.headers(headers ->
+                headers.frameOptions(frame -> frame.sameOrigin())
+        );
 
         return http.build();
     }
 
+    // ================= CORS CONFIG =================
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOriginPatterns(List.of("http://localhost:3000")); // FIXED
+        config.setAllowedOrigins(List.of("http://localhost:3000"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setExposedHeaders(List.of("Authorization"));
+        config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 }

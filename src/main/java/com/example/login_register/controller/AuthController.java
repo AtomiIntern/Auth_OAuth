@@ -3,58 +3,63 @@ package com.example.login_register.controller;
 import com.example.login_register.config.ApiResponse;
 import com.example.login_register.domain.FacebookLoginRequest;
 import com.example.login_register.domain.LoginRequest;
-import com.example.login_register.domain.LoginResponse;
 import com.example.login_register.domain.User;
 import com.example.login_register.service.AuthService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.example.login_register.domain.AuthResponse;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
 
-    @Autowired
-    private AuthService authService;
+    private final AuthService authService;
 
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
 
+    // ================= REGISTER =================
     @PostMapping("/register")
     public ApiResponse<User> register(@RequestBody User user) {
+
         ApiResponse<User> response = new ApiResponse<>();
-        response.setResult(this.authService.register(user));
+        response.setResult(authService.register(user));
         return response;
     }
 
+    // ================= LOGIN =================
     @PostMapping("/login")
-    public ApiResponse<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ApiResponse<AuthResponse> login(
+            @RequestBody LoginRequest request) {
 
-        String token = authService.login(
+        AuthResponse authResponse = authService.login(
                 request.getUsername(),
                 request.getPassword()
         );
 
-        ApiResponse<LoginResponse> response = new ApiResponse<>();
-        response.setResult(new LoginResponse(token));
+        ApiResponse<AuthResponse> response = new ApiResponse<>();
+        response.setResult(new AuthResponse(
+                authResponse.getAccessToken(),
+                authResponse.getRefreshToken()
+        ));
 
         return response;
     }
 
+    // ================= LOGIN FACEBOOK =================
     @PostMapping("/login/facebook")
-    public ApiResponse<LoginResponse> loginWithFacebook(
+    public ApiResponse<AuthResponse> loginWithFacebook(
             @RequestBody FacebookLoginRequest request) {
 
-        String token = authService.loginWithFacebook(request.getAccessToken());
+        AuthResponse authResponse =
+                authService.loginWithFacebook(request.getAccessToken());
 
-        ApiResponse<LoginResponse> response = new ApiResponse<>();
-        response.setResult(new LoginResponse(token));
+        ApiResponse<AuthResponse> response = new ApiResponse<>();
+        response.setResult(new AuthResponse(
+                authResponse.getAccessToken(),
+                authResponse.getRefreshToken()
+        ));
+
         return response;
     }
-
 }
-
-
